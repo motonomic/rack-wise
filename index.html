@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BO/PO Stock Match - South Region</title>
+<style>
+  :root{
+    --header-bg:#1F4E78;
+    --header-fg:#ffffff;
+    --accent:#1F4E78;
+    --accent-light:#eef4fa;
+    --border:#e0e0e0;
+    --row-alt:#f7f9fb;
+    --tag-bg:#fff2a8;
+    --green:#1e7e34;
+    --red:#c00000;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:#ffffff;
+    font-family:Arial, Helvetica, sans-serif;
+    color:#1a1a1a;
+  }
+  header.topbar{
+    background:var(--header-bg);
+    color:var(--header-fg);
+    padding:16px 20px;
+  }
+  header.topbar h1{
+    margin:0 0 4px 0;
+    font-size:19px;
+  }
+  header.topbar .branches{
+    font-size:12.5px;
+    opacity:0.9;
+  }
+  nav.tabs{
+    display:flex;
+    gap:2px;
+    background:#e9eef3;
+    padding:0 20px;
+    border-bottom:2px solid var(--accent);
+  }
+  nav.tabs button{
+    border:none;
+    background:transparent;
+    padding:10px 18px;
+    font-size:13.5px;
+    cursor:pointer;
+    color:#444;
+    border-bottom:3px solid transparent;
+  }
+  nav.tabs button.active{
+    color:var(--accent);
+    font-weight:bold;
+    border-bottom:3px solid var(--accent);
+    background:#fff;
+  }
+  main{ padding:16px 20px 40px 20px; }
+  .panel{ display:none; }
+  .panel.active{ display:block; }
+
+  .filters{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    align-items:flex-end;
+    margin-bottom:12px;
+    background:#fafbfc;
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:12px;
+  }
+  .field{ display:flex; flex-direction:column; gap:4px; }
+  .field label{ font-size:11px; color:#666; font-weight:bold; text-transform:uppercase; letter-spacing:.02em;}
+  .field input, .field select{
+    padding:8px 10px;
+    font-size:13px;
+    border:1px solid #ccc;
+    border-radius:6px;
+    font-family:Arial, Helvetica, sans-serif;
+    min-width:130px;
+  }
+  .field input:focus, .field select:focus{ outline:none; border-color:var(--accent); }
+  #quickSearch{ min-width:220px; }
+  .btn{
+    padding:8px 14px;
+    font-size:13px;
+    border:1px solid #ccc;
+    border-radius:6px;
+    background:#f2f2f2;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .btn:hover{ background:#e8e8e8; }
+  .btn.primary{ background:var(--accent); color:#fff; border-color:var(--accent); }
+  .btn.primary:hover{ background:#173d5c; }
+  .btn.small{ padding:5px 10px; font-size:12px; }
+
+  .toolbar{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    margin-bottom:10px;
+    flex-wrap:wrap;
+  }
+  .toolbar .rowcount{ font-size:12.5px; color:#666; margin-right:auto; }
+  .sel-controls{ display:flex; align-items:center; gap:6px; font-size:12.5px; }
+
+  .table-wrap{
+    overflow:auto;
+    max-height:70vh;
+    border:1px solid var(--border);
+    border-radius:8px;
+  }
+  table{
+    border-collapse:collapse;
+    width:100%;
+    font-size:12.3px;
+  }
+  thead th{
+    position:sticky; top:0;
+    background:var(--header-bg);
+    color:#fff;
+    text-align:left;
+    padding:9px 8px;
+    white-space:nowrap;
+    z-index:2;
+    cursor:pointer;
+    user-select:none;
+  }
+  thead th:hover{ background:#2a6396; }
+  .arrow{ display:inline-block; width:9px; font-size:9px; margin-left:3px;}
+  tbody td{
+    padding:6px 8px;
+    border-bottom:1px solid var(--border);
+    border-right:1px solid var(--border);
+    white-space:nowrap;
+  }
+  tbody tr:nth-child(even){ background:var(--row-alt); }
+  tbody tr:hover{ background:var(--accent-light); cursor:pointer; }
+  td.num{ text-align:center; }
+  td.pn{ font-weight:600; }
+  .stock-cell{ text-align:center; }
+  .rack-tag{
+    display:block;
+    font-size:10px;
+    color:#7a5b00;
+    background:var(--tag-bg);
+    border-radius:4px;
+    padding:1px 4px;
+    margin-top:2px;
+    white-space:normal;
+    line-height:1.25;
+    max-width:180px;
+  }
+  .status-badge{
+    display:inline-block;
+    padding:2px 7px;
+    border-radius:10px;
+    font-size:10.5px;
+    font-weight:bold;
+  }
+  .status-BACKORDER{ background:#fdeaea; color:var(--red); }
+  .status-UNPROCESS{ background:#eaf4ea; color:var(--green); }
+
+  #noResults{ padding:30px; text-align:center; color:#888; font-size:13.5px; display:none; }
+  #loadingMsg{ padding:30px; text-align:center; color:#888; font-size:13.5px; }
+
+  footer{ margin-top:14px; font-size:11px; color:#888; }
+
+  /* Modal */
+  .modal-overlay{
+    display:none;
+    position:fixed; inset:0;
+    background:rgba(0,0,0,0.45);
+    z-index:50;
+    align-items:center;
+    justify-content:center;
+  }
+  .modal-overlay.open{ display:flex; }
+  .modal{
+    background:#fff;
+    border-radius:10px;
+    width:min(520px, 92vw);
+    max-height:85vh;
+    overflow:auto;
+    padding:20px;
+    box-shadow:0 10px 40px rgba(0,0,0,0.25);
+  }
+  .modal h2{ margin:0 0 4px 0; font-size:16px; color:var(--accent); }
+  .modal .sub{ font-size:12px; color:#777; margin-bottom:14px; }
+  .modal-row{
+    display:flex; justify-content:space-between; gap:10px;
+    padding:6px 0;
+    border-bottom:1px solid #f0f0f0;
+    font-size:13px;
+  }
+  .modal-row .k{ color:#666; }
+  .modal-row .v{ font-weight:600; text-align:right; }
+  .modal-actions{ display:flex; gap:8px; margin-top:16px; justify-content:flex-end; }
+
+  /* Dealers / Parts tab summary tables */
+  .summary-table td, .summary-table th{ white-space:nowrap; }
+
+  @media print{
+    nav.tabs, .filters, .toolbar, footer, .modal-actions{ display:none !important; }
+    header.topbar{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .table-wrap{ max-height:none; overflow:visible; border:none; }
+    thead th{ position:static; }
+  }
+
+  @media (max-width:700px){
+    .field input, .field select{ min-width:100px; }
+    main{ padding:10px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <h1>BO / PO Stock Match Report — South Region</h1>
+  <div class="branches" id="branchLine">Branches: CHK (Chakkarakkal) • KNR (Kannur) • KPBA (Kuthuparamba) • TPBA (Taliparamba)</div>
+</header>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="matches">Matches</button>
+  <button class="tab-btn" data-tab="dealers">Dealers</button>
+  <button class="tab-btn" data-tab="parts">Parts</button>
+</nav>
+
+<main>
+
+<!-- ===================== MATCHES TAB ===================== -->
+<div class="panel active" id="panel-matches">
+
+  <div class="filters">
+    <div class="field">
+      <label>State</label>
+      <select id="f-state"><option value="">All States</option></select>
+    </div>
+    <div class="field">
+      <label>Dealer Code</label>
+      <input type="text" id="f-dcode" placeholder="e.g. KL050001">
+    </div>
+    <div class="field">
+      <label>Dealer Name</label>
+      <input type="text" id="f-dname" placeholder="e.g. Vahini Motors">
+    </div>
+    <div class="field">
+      <label>Part No / Name</label>
+      <input type="text" id="f-part" placeholder="e.g. 14541-gb4-681">
+    </div>
+    <div class="field">
+      <label>Status</label>
+      <select id="f-status">
+        <option value="">All</option>
+        <option value="BACKORDER">Backorder</option>
+        <option value="UNPROCESS ORDER">Unprocessed Orders</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>&#8203;</label>
+      <button class="btn" id="clearFiltersBtn">✕ Clear</button>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <span class="rowcount" id="rowCount"></span>
+    <div class="sel-controls">
+      <label><input type="checkbox" id="selAllVisible"> All Visible</label>
+      <button class="btn small" id="clearSelBtn">Clear Sel</button>
+    </div>
+    <button class="btn" id="pdfBtn">&#8595; PDF</button>
+    <button class="btn" id="whatsappBtn">WhatsApp &#8599;</button>
+  </div>
+
+  <div class="table-wrap">
+    <table id="matchTable">
+      <thead>
+        <tr>
+          <th style="cursor:default;"><input type="checkbox" id="headerSelectNone" title="handled by All Visible"></th>
+          <th data-key="state">State<span class="arrow"></span></th>
+          <th data-key="dcode">D.Code<span class="arrow"></span></th>
+          <th data-key="dealer_name">Dealer / Contact<span class="arrow"></span></th>
+          <th data-key="part_no">Part No.<span class="arrow"></span></th>
+          <th data-key="part_desc">Description<span class="arrow"></span></th>
+          <th data-key="models">Models<span class="arrow"></span></th>
+          <th data-key="bo_qty">BO Qty<span class="arrow"></span></th>
+          <th data-key="dlp">DLP (₹)<span class="arrow"></span></th>
+          <th data-key="status">Status<span class="arrow"></span></th>
+          <th data-key="chk_qty">CHK<span class="arrow"></span></th>
+          <th data-key="knr_qty">KNR<span class="arrow"></span></th>
+          <th data-key="kpba_qty">KPBA<span class="arrow"></span></th>
+          <th data-key="tpba_qty">TPBA<span class="arrow"></span></th>
+          <th data-key="total_stock">TOTAL<span class="arrow"></span></th>
+        </tr>
+      </thead>
+      <tbody id="matchBody"></tbody>
+    </table>
+  </div>
+  <div id="loadingMsg">Loading...</div>
+  <div id="noResults">No matching records found.</div>
+
+  <div class="toolbar" style="margin-top:10px;" id="pagerBar">
+    <button class="btn small" id="prevPage">&larr; Prev</button>
+    <span id="pageInfo" style="font-size:12.5px;color:#666;"></span>
+    <button class="btn small" id="nextPage">Next &rarr;</button>
+  </div>
+
+  <footer>Rows marked with a highlighted tag under KNR show the rack/box location from the rack-wise inventory list. CHK, KPBA and TPBA quantities are shown as reported, without location tagging.</footer>
+</div>
+
+<!-- ===================== DEALERS TAB ===================== -->
+<div class="panel" id="panel-dealers">
+  <div class="filters">
+    <div class="field">
+      <label>State</label>
+      <select id="d-state"><option value="">All States</option></select>
+    </div>
+    <div class="field">
+      <label>Search Dealer</label>
+      <input type="text" id="d-search" placeholder="Dealer name or code">
+    </div>
+  </div>
+  <div class="toolbar"><span class="rowcount" id="dealerRowCount"></span></div>
+  <div class="table-wrap">
+    <table class="summary-table" id="dealerTable">
+      <thead>
+        <tr>
+          <th data-key="rank">Rank<span class="arrow"></span></th>
+          <th data-key="dealer_name">Dealer Name<span class="arrow"></span></th>
+          <th data-key="dcode">Dealer Code<span class="arrow"></span></th>
+          <th data-key="state">State<span class="arrow"></span></th>
+          <th data-key="lines">Line Items<span class="arrow"></span></th>
+          <th data-key="qty">Total BO Qty<span class="arrow"></span></th>
+          <th data-key="value">Total Value at DLP (₹)<span class="arrow"></span></th>
+        </tr>
+      </thead>
+      <tbody id="dealerBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ===================== PARTS TAB ===================== -->
+<div class="panel" id="panel-parts">
+  <div class="filters">
+    <div class="field">
+      <label>Search Part</label>
+      <input type="text" id="p-search" placeholder="Part number or description">
+    </div>
+  </div>
+  <div class="toolbar"><span class="rowcount" id="partRowCount"></span></div>
+  <div class="table-wrap">
+    <table class="summary-table" id="partTable">
+      <thead>
+        <tr>
+          <th data-key="part_no">Part No.<span class="arrow"></span></th>
+          <th data-key="part_desc">Description<span class="arrow"></span></th>
+          <th data-key="dealers">Dealers Requesting<span class="arrow"></span></th>
+          <th data-key="bo_qty">Total BO Qty<span class="arrow"></span></th>
+          <th data-key="chk_qty">CHK<span class="arrow"></span></th>
+          <th data-key="knr_qty">KNR<span class="arrow"></span></th>
+          <th data-key="kpba_qty">KPBA<span class="arrow"></span></th>
+          <th data-key="tpba_qty">TPBA<span class="arrow"></span></th>
+        </tr>
+      </thead>
+      <tbody id="partBody"></tbody>
+    </table>
+  </div>
+</div>
+
+</main>
+
+<!-- Part Details Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2 id="modalTitle">Part Details</h2>
+    <div class="sub" id="modalSub"></div>
+    <div id="modalBody"></div>
+    <div class="modal-actions">
+      <button class="btn small" id="modalWhatsapp">WhatsApp &#8599;</button>
+      <button class="btn small" id="modalPdf">&#8595; PDF</button>
+      <button class="btn primary small" id="modalClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Data files: linked, not embedded -->
+<script src="data.js"></script>
+<script src="rack_lookup.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
