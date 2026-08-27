@@ -39,6 +39,29 @@
     };
   });
 
+  // De-duplicated "our stock" view — one row per part, independent of any
+  // dealer backorder. Location qty fields are a snapshot repeated across
+  // every backorder line for that part, so first-seen values are correct.
+  var STOCK_RECORDS = (function () {
+    var seen = {};
+    var out = [];
+    RECORDS.forEach(function (r) {
+      if (seen[r.part_no]) return;
+      seen[r.part_no] = true;
+      out.push({
+        part_no: r.part_no,
+        part_desc: r.part_desc,
+        models: r.models,
+        chk_qty: r.chk_qty,
+        knr_qty: r.knr_qty,
+        kpba_qty: r.kpba_qty,
+        tpba_qty: r.tpba_qty,
+        total_stock: r.total_stock
+      });
+    });
+    return out;
+  })();
+
   function normalizePN(s) {
     if (s === null || s === undefined) return "";
     return String(s).toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -105,12 +128,43 @@
   var currentPage = 1;
   var filtered = RECORDS.slice();
 
+  var isStockMode = false;
+  var stockFiltered = STOCK_RECORDS.slice();
+  var stockSortKey = "part_no", stockSortAsc = true;
+  var stockCurrentPage = 1;
+
+  function clearArrows() {
+    document.querySelectorAll('#matchTable thead .arrow').forEach(function (a) { a.textContent = ""; });
+  }
+
+  function toggleModeUI() {
+    document.getElementById("locationFieldWrap").style.display = isStockMode ? "" : "none";
+    document.getElementById("stockOnlyHint").style.display = isStockMode ? "block" : "none";
+    document.getElementById("exportExcelBtn").style.display = isStockMode ? "inline-block" : "none";
+    document.getElementById("whatsappBtn").style.display = isStockMode ? "none" : "inline-block";
+    document.querySelector(".sel-controls").style.display = isStockMode ? "none" : "flex";
+    document.getElementById("f-dcode").disabled = isStockMode;
+    document.getElementById("f-dname").disabled = isStockMode;
+    document.getElementById("f-state").disabled = isStockMode;
+    document.getElementById("matchTable").classList.toggle("stock-mode", isStockMode);
+    document.getElementById("pdfBtn").textContent = isStockMode ? "\u2193 PDF" : "\u2193 PDF";
+  }
+
   function applyFilters() {
+    var statusVal = document.getElementById("f-status").value;
+    isStockMode = (statusVal === "__STOCK_ONLY__");
+    toggleModeUI();
+
+    if (isStockMode) {
+      applyStockFilters();
+      return;
+    }
+
     var st = document.getElementById("f-state").value;
     var dcode = document.getElementById("f-dcode").value.trim().toLowerCase();
     var dname = document.getElementById("f-dname").value.trim().toLowerCase();
     var part = normalizePN(document.getElementById("f-part").value);
-    var status = document.getElementById("f-status").value;
+    var status = statusVal;
 
     filtered = RECORDS.filter(function (r) {
       if (st && r.state !== st) return false;
@@ -130,6 +184,85 @@
     renderMatches();
   }
 
+  function applyStockFilters() {
+    var part = normalizePN(document.getElementById("f-part").value);
+    var loc = document.getElementById("f-location").value;
+
+    stockFiltered = STOCK_RECORDS.filter(function (p) {
+      if (part) {
+        var npn = normalizePN(p.part_no);
+        var ndesc = normalizePN(p.part_desc);
+        if (npn.indexOf(part) === -1 && ndesc.indexOf(part) === -1) return false;
+      }
+      if (loc) {
+        var v = parseFloat(p[loc]) || 0;
+        if (v <= 0) return false;
+      }
+      return true;
+    });
+
+    if (stockSortKey) sortStockFiltered();
+    stockCurrentPage = 1;
+    renderStockView();
+  }
+
+  function sortStockFiltered() {
+    stockFiltered.sort(function (a, b) {
+      var av = a[stockSortKey], bv = b[stockSortKey];
+      var an = parseFloat(av), bn = parseFloat(bv);
+      var bothNum = !isNaN(an) && !isNaN(bn) && av !== "" && bv !== "";
+      if (bothNum) return stockSortAsc ? an - bn : bn - an;
+      av = (av === null || av === undefined) ? "" : String(av);
+      bv = (bv === null || bv === undefined) ? "" : String(bv);
+      return stockSortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+    });
+  }
+
+  function renderStockView() {
+    document.getElementById("loadingMsg").style.display = "none";
+    var tbody = document.getElementById("matchBody");
+    var noRes = document.getElementById("noResults");
+
+    var total = stockFiltered.length;
+    document.getElementById("rowCount").textContent =
+      total + " part" + (total === 1 ? "" : "s") + " in our stock" +
+      (document.getElementById("f-location").value ? " at " + document.getElementById("f-location").value.replace("_qty", "").toUpperCase() : "");
+
+    if (total === 0) {
+      tbody.innerHTML = "";
+      noRes.style.display = "block";
+      document.getElementById("pagerBar").style.display = "none";
+      return;
+    }
+    noRes.style.display = "none";
+    document.getElementById("pagerBar").style.display = "flex";
+
+    var totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    if (stockCurrentPage > totalPages) stockCurrentPage = totalPages;
+    var startIdx = (stockCurrentPage - 1) * PAGE_SIZE;
+    var pageRows = stockFiltered.slice(startIdx, startIdx + PAGE_SIZE);
+
+    document.getElementById("pageInfo").textContent =
+      "Page " + stockCurrentPage + " of " + totalPages + " (" + total + " total)";
+
+    tbody.innerHTML = pageRows.map(function (p) {
+      return (
+        '<tr>' +
+        '<td></td><td></td><td></td><td></td>' +
+        '<td class="pn">' + esc(p.part_no) + '</td>' +
+        '<td>' + esc(p.part_desc) + '</td>' +
+        '<td>' + esc(p.models) + '</td>' +
+        '<td></td><td></td><td></td>' +
+        '<td class="stock-cell">' + stockCell(p.chk_qty, false, p.part_no) + '</td>' +
+        '<td class="stock-cell">' + stockCell(p.knr_qty, true, p.part_no) + '</td>' +
+        '<td class="stock-cell">' + stockCell(p.kpba_qty, false, p.part_no) + '</td>' +
+        '<td class="stock-cell">' + stockCell(p.tpba_qty, false, p.part_no) + '</td>' +
+        '<td class="num">' + esc(p.total_stock) + '</td>' +
+        '</tr>'
+      );
+    }).join("");
+  }
+
   function sortFiltered() {
     filtered.sort(function (a, b) {
       var av = a[sortKey], bv = b[sortKey];
@@ -147,13 +280,23 @@
   document.querySelectorAll('#matchTable thead th[data-key]').forEach(function (th) {
     th.addEventListener("click", function () {
       var key = th.dataset.key;
-      sortAsc = (sortKey === key) ? !sortAsc : true;
-      sortKey = key;
-      sortFiltered();
-      document.querySelectorAll('#matchTable thead .arrow').forEach(function (a) { a.textContent = ""; });
-      th.querySelector(".arrow").textContent = sortAsc ? "\u25B2" : "\u25BC";
-      currentPage = 1;
-      renderMatches();
+      if (isStockMode) {
+        stockSortAsc = (stockSortKey === key) ? !stockSortAsc : true;
+        stockSortKey = key;
+        sortStockFiltered();
+        clearArrows();
+        th.querySelector(".arrow").textContent = stockSortAsc ? "\u25B2" : "\u25BC";
+        stockCurrentPage = 1;
+        renderStockView();
+      } else {
+        sortAsc = (sortKey === key) ? !sortAsc : true;
+        sortKey = key;
+        sortFiltered();
+        clearArrows();
+        th.querySelector(".arrow").textContent = sortAsc ? "\u25B2" : "\u25BC";
+        currentPage = 1;
+        renderMatches();
+      }
     });
   });
 
@@ -242,14 +385,23 @@
   }
 
   document.getElementById("prevPage").addEventListener("click", function () {
-    if (currentPage > 1) { currentPage--; renderMatches(); }
+    if (isStockMode) {
+      if (stockCurrentPage > 1) { stockCurrentPage--; renderStockView(); }
+    } else {
+      if (currentPage > 1) { currentPage--; renderMatches(); }
+    }
   });
   document.getElementById("nextPage").addEventListener("click", function () {
-    var totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-    if (currentPage < totalPages) { currentPage++; renderMatches(); }
+    if (isStockMode) {
+      var totalPagesS = Math.max(1, Math.ceil(stockFiltered.length / PAGE_SIZE));
+      if (stockCurrentPage < totalPagesS) { stockCurrentPage++; renderStockView(); }
+    } else {
+      var totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+      if (currentPage < totalPages) { currentPage++; renderMatches(); }
+    }
   });
 
-  ["f-state", "f-dcode", "f-dname", "f-part", "f-status"].forEach(function (id) {
+  ["f-state", "f-dcode", "f-dname", "f-part", "f-status", "f-location"].forEach(function (id) {
     document.getElementById(id).addEventListener("input", applyFilters);
     document.getElementById(id).addEventListener("change", applyFilters);
   });
@@ -259,6 +411,7 @@
     document.getElementById("f-dname").value = "";
     document.getElementById("f-part").value = "";
     document.getElementById("f-status").value = "";
+    document.getElementById("f-location").value = "";
     applyFilters();
   });
 
@@ -276,9 +429,49 @@
     renderMatches();
   });
 
-  // ---------- PDF / WhatsApp (bulk) ----------
+  // ---------- PDF / WhatsApp / Excel (bulk) ----------
   document.getElementById("pdfBtn").addEventListener("click", function () {
-    window.print();
+    if (isStockMode && window.jspdf) {
+      var locVal = document.getElementById("f-location").value;
+      var locLabel = locVal ? locVal.replace("_qty", "").toUpperCase() : "All Locations";
+      var doc = new window.jspdf.jsPDF({ orientation: "landscape" });
+      doc.setFontSize(13);
+      doc.text("Our Stock Holdings \u2014 " + locLabel, 14, 12);
+      doc.setFontSize(8);
+      doc.text("Generated " + (RAW.generated || "") + " \u2022 Stock as of " + (RAW.stock_date || ""), 14, 17);
+      var head = [["Part No", "Description", "Model", "CHK", "KNR", "KNR Rack / Box", "KPBA", "TPBA", "Total"]];
+      var body = stockFiltered.map(function (p) {
+        return [p.part_no, p.part_desc || "", p.models || "", p.chk_qty, p.knr_qty, rackFor(p.part_no) || "", p.kpba_qty, p.tpba_qty, p.total_stock];
+      });
+      doc.autoTable({ head: head, body: body, startY: 22, styles: { fontSize: 7 }, headStyles: { fillColor: [31, 78, 120] } });
+      doc.save("Our_Stock_" + locLabel.replace(/\s+/g, "-") + "_" + Date.now() + ".pdf");
+    } else {
+      window.print();
+    }
+  });
+
+  document.getElementById("exportExcelBtn").addEventListener("click", function () {
+    if (!window.XLSX) { alert("Excel export library failed to load (check internet connection)."); return; }
+    var rows = stockFiltered.map(function (p) {
+      return {
+        "Part No": p.part_no,
+        "Description": p.part_desc,
+        "Model": p.models,
+        "CHK": p.chk_qty,
+        "KNR": p.knr_qty,
+        "KNR Rack / Box": rackFor(p.part_no) || "",
+        "KPBA": p.kpba_qty,
+        "TPBA": p.tpba_qty,
+        "Total Stock": p.total_stock
+      };
+    });
+    var ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [{ wch: 16 }, { wch: 30 }, { wch: 16 }, { wch: 8 }, { wch: 8 }, { wch: 36 }, { wch: 8 }, { wch: 8 }, { wch: 10 }];
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Our Stock");
+    var locVal = document.getElementById("f-location").value;
+    var locLabel = locVal ? locVal.replace("_qty", "").toUpperCase() : "All-Locations";
+    XLSX.writeFile(wb, "Our_Stock_" + locLabel + "_" + Date.now() + ".xlsx");
   });
 
   function buildWhatsAppText(records) {

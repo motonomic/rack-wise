@@ -216,6 +216,17 @@
     .field input, .field select{ min-width:100px; }
     main{ padding:10px; }
   }
+
+  /* Stock-only view: hide dealer/backorder-specific columns */
+  table.stock-mode th:nth-child(1), table.stock-mode td:nth-child(1),
+  table.stock-mode th:nth-child(2), table.stock-mode td:nth-child(2),
+  table.stock-mode th:nth-child(3), table.stock-mode td:nth-child(3),
+  table.stock-mode th:nth-child(4), table.stock-mode td:nth-child(4),
+  table.stock-mode th:nth-child(8), table.stock-mode td:nth-child(8),
+  table.stock-mode th:nth-child(9), table.stock-mode td:nth-child(9),
+  table.stock-mode th:nth-child(10), table.stock-mode td:nth-child(10){
+    display:none;
+  }
 </style>
 </head>
 <body>
@@ -259,12 +270,26 @@
         <option value="">All</option>
         <option value="BACKORDER">Backorder</option>
         <option value="UNPROCESS ORDER">Unprocessed Orders</option>
+        <option value="__STOCK_ONLY__">Our Stock Only (no backorders)</option>
+      </select>
+    </div>
+    <div class="field" id="locationFieldWrap" style="display:none;">
+      <label>Location</label>
+      <select id="f-location">
+        <option value="">All Locations</option>
+        <option value="chk_qty">CHK</option>
+        <option value="knr_qty">KNR</option>
+        <option value="kpba_qty">KPBA</option>
+        <option value="tpba_qty">TPBA</option>
       </select>
     </div>
     <div class="field">
       <label>&#8203;</label>
       <button class="btn" id="clearFiltersBtn">✕ Clear</button>
     </div>
+  </div>
+  <div class="hint" id="stockOnlyHint" style="display:none; font-size:11.5px; color:#888; margin:-6px 0 10px 2px;">
+    Showing our own stock holdings only, independent of dealer backorders. Rack/box location is tagged under KNR as before.
   </div>
 
   <div class="toolbar">
@@ -275,6 +300,7 @@
     </div>
     <button class="btn" id="pdfBtn">&#8595; PDF</button>
     <button class="btn" id="whatsappBtn">WhatsApp &#8599;</button>
+    <button class="btn primary" id="exportExcelBtn" style="display:none;">&#8595; Excel</button>
   </div>
 
   <div class="table-wrap">
@@ -387,6 +413,11 @@
     </div>
   </div>
 </div>
+
+<!-- Export libraries (for Stock Only view: Excel / PDF download) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf-autotable.min.js"></script>
 
 <!-- Data files: linked, not embedded -->
 <script src="data.js"></script>
