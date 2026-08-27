@@ -52,6 +52,7 @@
         part_no: r.part_no,
         part_desc: r.part_desc,
         models: r.models,
+        dlp: r.dlp,
         chk_qty: r.chk_qty,
         knr_qty: r.knr_qty,
         kpba_qty: r.kpba_qty,
@@ -252,7 +253,9 @@
         '<td class="pn">' + esc(p.part_no) + '</td>' +
         '<td>' + esc(p.part_desc) + '</td>' +
         '<td>' + esc(p.models) + '</td>' +
-        '<td></td><td></td><td></td>' +
+        '<td></td>' +
+        '<td class="num">' + fmtMoney(p.dlp) + '</td>' +
+        '<td></td>' +
         '<td class="stock-cell">' + stockCell(p.chk_qty, false, p.part_no) + '</td>' +
         '<td class="stock-cell">' + stockCell(p.knr_qty, true, p.part_no) + '</td>' +
         '<td class="stock-cell">' + stockCell(p.kpba_qty, false, p.part_no) + '</td>' +
@@ -439,9 +442,9 @@
       doc.text("Our Stock Holdings \u2014 " + locLabel, 14, 12);
       doc.setFontSize(8);
       doc.text("Generated " + (RAW.generated || "") + " \u2022 Stock as of " + (RAW.stock_date || ""), 14, 17);
-      var head = [["Part No", "Description", "Model", "CHK", "KNR", "KNR Rack / Box", "KPBA", "TPBA", "Total"]];
+      var head = [["Part No", "Description", "Model", "DLP (\u20b9)", "CHK", "KNR", "KNR Rack / Box", "KPBA", "TPBA", "Total"]];
       var body = stockFiltered.map(function (p) {
-        return [p.part_no, p.part_desc || "", p.models || "", p.chk_qty, p.knr_qty, rackFor(p.part_no) || "", p.kpba_qty, p.tpba_qty, p.total_stock];
+        return [p.part_no, p.part_desc || "", p.models || "", fmtMoney(p.dlp), p.chk_qty, p.knr_qty, rackFor(p.part_no) || "", p.kpba_qty, p.tpba_qty, p.total_stock];
       });
       doc.autoTable({ head: head, body: body, startY: 22, styles: { fontSize: 7 }, headStyles: { fillColor: [31, 78, 120] } });
       doc.save("Our_Stock_" + locLabel.replace(/\s+/g, "-") + "_" + Date.now() + ".pdf");
@@ -457,6 +460,7 @@
         "Part No": p.part_no,
         "Description": p.part_desc,
         "Model": p.models,
+        "DLP (Rs.)": p.dlp,
         "CHK": p.chk_qty,
         "KNR": p.knr_qty,
         "KNR Rack / Box": rackFor(p.part_no) || "",
@@ -466,7 +470,7 @@
       };
     });
     var ws = XLSX.utils.json_to_sheet(rows);
-    ws["!cols"] = [{ wch: 16 }, { wch: 30 }, { wch: 16 }, { wch: 8 }, { wch: 8 }, { wch: 36 }, { wch: 8 }, { wch: 8 }, { wch: 10 }];
+    ws["!cols"] = [{ wch: 16 }, { wch: 30 }, { wch: 16 }, { wch: 11 }, { wch: 8 }, { wch: 8 }, { wch: 36 }, { wch: 8 }, { wch: 8 }, { wch: 10 }];
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Our Stock");
     var locVal = document.getElementById("f-location").value;
