@@ -68,6 +68,14 @@
     return String(s).toUpperCase().replace(/[^A-Z0-9]/g, "");
   }
 
+  // Status labels have varied across uploads (e.g. "UNPROCESS ORDER" vs
+  // "Unprocessed Order"). Normalize to two canonical buckets so filtering
+  // and badges keep working regardless of exact wording/casing.
+  function normalizeStatus(s) {
+    var u = String(s || "").toUpperCase();
+    return u.indexOf("BACK") !== -1 ? "BACKORDER" : "UNPROCESSED";
+  }
+
   function rackFor(part_no) {
     var key = normalizePN(part_no);
     return RACK[key] || null;
@@ -171,7 +179,7 @@
       if (st && r.state !== st) return false;
       if (dcode && !String(r.dcode || "").toLowerCase().includes(dcode)) return false;
       if (dname && !String(r.dealer_name || "").toLowerCase().includes(dname)) return false;
-      if (status && r.status !== status) return false;
+      if (status && normalizeStatus(r.status) !== status) return false;
       if (part) {
         var npn = normalizePN(r.part_no);
         var ndesc = normalizePN(r.part_desc);
@@ -304,8 +312,9 @@
   });
 
   function statusBadge(status) {
-    var cls = status === "BACKORDER" ? "status-BACKORDER" : "status-UNPROCESS";
-    var label = status === "BACKORDER" ? "Backorder" : "Unprocessed";
+    var canon = normalizeStatus(status);
+    var cls = canon === "BACKORDER" ? "status-BACKORDER" : "status-UNPROCESS";
+    var label = canon === "BACKORDER" ? "Backorder" : "Unprocessed";
     return '<span class="status-badge ' + cls + '">' + esc(label) + '</span>';
   }
 
@@ -512,7 +521,7 @@
     var rows = [
       ["Dealer", r.dealer_name], ["Dealer Code", r.dcode], ["State", r.state], ["City", r.city],
       ["Contact", (r.contact_name || "") + (r.contact ? " (" + r.contact + ")" : "")],
-      ["Status", r.status === "BACKORDER" ? "Backorder" : "Unprocessed Order"],
+      ["Status", normalizeStatus(r.status) === "BACKORDER" ? "Backorder" : "Unprocessed Order"],
       ["BO Qty", r.bo_qty], ["DLP (\u20b9)", fmtMoney(r.dlp)],
       ["CHK Stock", r.chk_qty], ["KNR Stock", r.knr_qty + (loc ? " \u2014 " + loc : "")],
       ["KPBA Stock", r.kpba_qty], ["TPBA Stock", r.tpba_qty], ["Total Stock", r.total_stock]
