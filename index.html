@@ -218,7 +218,6 @@
   }
 
   /* Stock-only view: hide dealer/backorder-specific columns */
-  table.stock-mode th:nth-child(1), table.stock-mode td:nth-child(1),
   table.stock-mode th:nth-child(2), table.stock-mode td:nth-child(2),
   table.stock-mode th:nth-child(3), table.stock-mode td:nth-child(3),
   table.stock-mode th:nth-child(4), table.stock-mode td:nth-child(4),
@@ -296,17 +295,18 @@
     <div class="sel-controls">
       <label><input type="checkbox" id="selAllVisible"> All Visible</label>
       <button class="btn small" id="clearSelBtn">Clear Sel</button>
+      <span id="selCount" style="color:#555;font-weight:bold;white-space:nowrap;">none selected</span>
     </div>
     <button class="btn" id="pdfBtn">&#8595; PDF</button>
     <button class="btn" id="whatsappBtn">WhatsApp &#8599;</button>
-    <button class="btn primary" id="exportExcelBtn" style="display:none;">&#8595; Excel</button>
+    <button class="btn" id="exportExcelBtn">&#8595; Excel</button>
   </div>
 
   <div class="table-wrap">
     <table id="matchTable">
       <thead>
         <tr>
-          <th style="cursor:default;"><input type="checkbox" id="headerSelectNone" title="handled by All Visible"></th>
+          <th style="cursor:default;"><input type="checkbox" id="headerSel" title="Select / unselect all rows matching the current filters"></th>
           <th data-key="state">State<span class="arrow"></span></th>
           <th data-key="dcode">D.Code<span class="arrow"></span></th>
           <th data-key="dealer_name">Dealer / Contact<span class="arrow"></span></th>
@@ -335,7 +335,7 @@
     <button class="btn small" id="nextPage">Next &rarr;</button>
   </div>
 
-  <footer>Rows marked with a highlighted tag under KNR show the rack/box location from the rack-wise inventory list. CHK, KPBA and TPBA quantities are shown as reported, without location tagging.</footer>
+  <footer>A highlighted tag under KNR shows the rack/box location (from the rack-wise inventory list) for parts that have stock at KNR. CHK, KPBA and TPBA quantities are shown as reported, without location tagging. PDF / Excel export covers the ticked rows; if nothing is ticked it covers every row matching the current filters.</footer>
 </div>
 
 <!-- ===================== DEALERS TAB ===================== -->
@@ -413,14 +413,9 @@
   </div>
 </div>
 
-<!-- Export libraries (for Stock Only view: Excel / PDF download) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf-autotable.min.js"></script>
-
 <!-- Data files: linked, not embedded -->
 <script src="data.js"></script>
 <script src="rack_lookup.js"></script>
-<script src="app.js?v=4"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>
